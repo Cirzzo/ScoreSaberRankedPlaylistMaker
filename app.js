@@ -1,4 +1,6 @@
-const API_ROOT = "https://scoresaber.com/api/v2";
+const API_ROOT = (
+  window.SCORESABER_API_ROOT || "https://scoresaber.com/api/v2"
+).replace(/\/+$/, "");
 const PAGE_SIZE = 100;
 const PAGE_PAUSE_MS = 180;
 const REQUEST_TIMEOUT_MS = 15000;
