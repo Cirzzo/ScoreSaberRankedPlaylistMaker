@@ -55,6 +55,9 @@ const rankedResultsSubtitle = document.querySelector(
 );
 const rankedCount = document.querySelector("#ranked-count");
 const rankedDownloadButton = document.querySelector("#ranked-download-button");
+const rankedSplitDifficulties = document.querySelector(
+  "#ranked-split-difficulties",
+);
 const rankedStatusLine = document.querySelector("#ranked-status-line");
 const rankedStatusText = document.querySelector("#ranked-status-text");
 const rankedTrackList = document.querySelector("#ranked-track-list");
@@ -237,6 +240,7 @@ form.addEventListener("submit", async (event) => {
     const requestedMaximumStars = maximumStars;
     const requestedMinimumAccuracy = minimumAccuracy;
     const requestedMaximumAccuracy = maximumAccuracy;
+    let pagesScanned = 0;
     for (
       let page = totalPages;
       page >= 1 && scores.length < requestedCount;
@@ -244,11 +248,12 @@ form.addEventListener("submit", async (event) => {
     ) {
       if (requestId !== activeRequest) return;
       setStatus(
-        `Checking lowest-accuracy ranked scores... page ${page} of ${totalPages}`,
+        `Scanning page ${pagesScanned + 1} of up to ${totalPages}; ${scores.length} of ${requestedCount} maps matched.`,
       );
       if (page !== totalPages && page !== 1) await pause(PAGE_PAUSE_MS);
       const payload =
         page === 1 ? firstPage : await fetchScorePage(playerId, page);
+      pagesScanned += 1;
       for (const entry of payload.data ?? []) {
         const score = entry.score ?? {};
         const board = entry.leaderboard ?? {};
@@ -276,6 +281,9 @@ form.addEventListener("submit", async (event) => {
         seen.add(key);
         scores.push(normalizeScore(entry));
       }
+      setStatus(
+        `Scanned ${pagesScanned} of ${totalPages} pages; ${Math.min(scores.length, requestedCount)} of ${requestedCount} maps matched.`,
+      );
     }
 
     if (requestId !== activeRequest) return;
@@ -300,7 +308,10 @@ form.addEventListener("submit", async (event) => {
     } else {
       resultsTitle.innerHTML =
         'Your next run starts here<span class="title-period">.</span>';
-      resultsSubtitle.textContent = `${scores.length} ranked maps at ${requestedMinimumAccuracy}%–${requestedMaximumAccuracy}% accuracy and ${requestedMinimumStars.toFixed(1)}–${requestedMaximumStars.toFixed(1)} stars.`;
+      const reachedTarget = scores.length >= requestedCount;
+      resultsSubtitle.textContent = reachedTarget
+        ? `Showing ${requestedCount} lowest-accuracy matches (${requestedMinimumAccuracy}%–${requestedMaximumAccuracy}%, ${requestedMinimumStars.toFixed(1)}–${requestedMaximumStars.toFixed(1)} stars).`
+        : `Found ${scores.length} matches after scanning all ${pagesScanned} score pages (${requestedMinimumAccuracy}%–${requestedMaximumAccuracy}%, ${requestedMinimumStars.toFixed(1)}–${requestedMaximumStars.toFixed(1)} stars).`;
     }
   } catch (error) {
     if (requestId !== activeRequest) return;
@@ -365,7 +376,9 @@ async function fetchAllRankedMaps(event) {
     for (let page = 1; page <= totalPages; page += 1) {
       if (requestId !== activeRankedRequest) return;
       if (page > 1) {
-        setRankedStatus(`Loading ranked maps... page ${page} of ${totalPages}`);
+        setRankedStatus(
+          `Loading maps ${allMaps.length.toLocaleString()} of ${totalMaps.toLocaleString()}... page ${page} of ${totalPages}`,
+        );
         await pause(PAGE_PAUSE_MS);
       } else {
         setRankedStatus(
@@ -377,6 +390,15 @@ async function fetchAllRankedMaps(event) {
           ? firstPage
           : await fetchRankedMapPage(page, minimumStars, maximumStars);
       allMaps.push(...(payload.data ?? []));
+      setRankedStatus(
+        `Loaded ${allMaps.length.toLocaleString()} of ${totalMaps.toLocaleString()} maps... page ${page} of ${totalPages}`,
+      );
+    }
+
+    if (totalMaps > 0 && allMaps.length !== totalMaps) {
+      throw new Error(
+        `Incomplete map fetch: received ${allMaps.length} of ${totalMaps} maps. Retry to load the full result.`,
+      );
     }
 
     const seen = new Set();
@@ -420,7 +442,7 @@ async function fetchAllRankedMaps(event) {
     const uniqueMaps = new Set(rankedEntries.map((entry) => entry.map.hash))
       .size;
     rankedResultsTitle.textContent = "Ranked maps ready.";
-    rankedResultsSubtitle.textContent = `${uniqueMaps.toLocaleString()} maps with ${rankedEntries.length.toLocaleString()} ranked difficulties from ${minimumStars.toFixed(1)} to ${maximumStars.toFixed(1)} stars.`;
+    rankedResultsSubtitle.textContent = `${rankedEntries.length.toLocaleString()} difficulties across ${uniqueMaps.toLocaleString()} matching maps (${allMaps.length.toLocaleString()} maps scanned).`;
   } catch (error) {
     if (requestId !== activeRankedRequest) return;
     rankedFetchButton.disabled = false;
@@ -539,20 +561,27 @@ function createRankedMapRow(entry) {
 
 function downloadRankedPlaylist() {
   if (!rankedEntries.length) return;
+  const splitDifficulties = rankedSplitDifficulties.checked;
   const songsByHash = new Map();
+  const separateSongs = [];
   for (const { map, leaderboard } of rankedEntries) {
     const hash = String(map.hash).toUpperCase();
+    const difficulty = formatPlaylistDifficulty(leaderboard);
+    const songEntry = {
+      key: hash,
+      hash,
+      songName: map.songName || "Unknown track",
+      levelAuthorName: map.levelAuthorName || "Unknown mapper",
+      difficulties: [difficulty],
+    };
+    if (splitDifficulties) {
+      separateSongs.push(songEntry);
+      continue;
+    }
     if (!songsByHash.has(hash)) {
-      songsByHash.set(hash, {
-        key: hash,
-        hash,
-        songName: map.songName || "Unknown track",
-        levelAuthorName: map.levelAuthorName || "Unknown mapper",
-        difficulties: [],
-      });
+      songsByHash.set(hash, { ...songEntry, difficulties: [] });
     }
     const song = songsByHash.get(hash);
-    const difficulty = formatPlaylistDifficulty(leaderboard);
     if (
       !song.difficulties.some(
         (item) =>
@@ -563,14 +592,18 @@ function downloadRankedPlaylist() {
       song.difficulties.push(difficulty);
     }
   }
-  const uniqueMapCount = songsByHash.size;
+  const uniqueMapCount = new Set(rankedEntries.map((entry) => entry.map.hash))
+    .size;
+  const songs = splitDifficulties ? separateSongs : [...songsByHash.values()];
   const playlist = {
     playlistTitle: `Ranked Maps ${rankedMinimumStars.toFixed(1)}-${rankedMaximumStars.toFixed(1)} Stars`,
     playlistAuthor: "ScoreSaber Playlist Tools",
-    playlistDescription: `${rankedEntries.length} ranked difficulties across ${uniqueMapCount} maps from ${rankedMinimumStars.toFixed(1)} to ${rankedMaximumStars.toFixed(1)} stars.`,
-    songs: [...songsByHash.values()],
+    playlistDescription: splitDifficulties
+      ? `${rankedEntries.length} ranked difficulties as separate entries across ${uniqueMapCount} maps.`
+      : `${rankedEntries.length} ranked difficulties grouped across ${uniqueMapCount} maps.`,
+    songs,
     coverImage: "",
-    allowDuplicates: false,
+    allowDuplicates: splitDifficulties,
   };
   const blob = new Blob([JSON.stringify(playlist, null, 2)], {
     type: "application/json",

@@ -492,6 +492,24 @@ h2 {
   cursor: not-allowed;
 }
 
+.export-toggle {
+  width: fit-content;
+  margin: 12px 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.export-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .status-line {
   margin-top: 14px;
   padding: 8px 10px;

@@ -4,10 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#19181e" />
-    <meta
-      name="description"
-      content="ScoreSaber ranked-map playlist tools."
-    />
+    <meta name="description" content="ScoreSaber ranked-map playlist tools." />
     <title>ScoreSaber Playlist Tools</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="config.js" defer></script>
@@ -55,7 +52,9 @@
       >
         <aside class="control-rail" aria-label="Playlist settings">
           <form id="player-form" class="player-form">
-            <label class="section-label" for="player-input">PLAYER PROFILE</label>
+            <label class="section-label" for="player-input"
+              >PLAYER PROFILE</label
+            >
             <div class="input-wrap">
               <svg aria-hidden="true" viewBox="0 0 24 24">
                 <circle cx="12" cy="8" r="3.5"></circle>
@@ -89,7 +88,9 @@
 
           <section class="size-setting" aria-labelledby="size-label">
             <div class="setting-heading">
-              <label class="section-label" id="size-label" for="size-slider">PLAYLIST SIZE</label>
+              <label class="section-label" id="size-label" for="size-slider"
+                >PLAYLIST SIZE</label
+              >
               <output id="size-output" for="size-slider">50</output>
             </div>
             <input
@@ -161,14 +162,49 @@
 
           <section class="accuracy-setting" aria-labelledby="accuracy-label">
             <div class="setting-heading">
-              <label class="section-label" id="accuracy-label">EXISTING ACCURACY</label>
-              <output class="star-range-output" id="accuracy-range-output">0% - 95%</output>
+              <label class="section-label" id="accuracy-label"
+                >EXISTING ACCURACY</label
+              >
+              <output class="star-range-output" id="accuracy-range-output"
+                >0% - 95%</output
+              >
             </div>
-            <div class="star-range" id="accuracy-range-control" role="group" aria-labelledby="accuracy-label">
+            <div
+              class="star-range"
+              id="accuracy-range-control"
+              role="group"
+              aria-labelledby="accuracy-label"
+            >
               <div class="star-range-track" aria-hidden="true"></div>
-              <div class="star-range-fill" id="accuracy-range-fill" aria-hidden="true"></div>
-              <div class="star-range-handle" id="accuracy-min-handle" data-accuracy-handle="min" role="slider" tabindex="0" aria-label="Minimum existing map accuracy" aria-valuemin="0" aria-valuemax="95" aria-valuenow="0" aria-valuetext="0 percent minimum"></div>
-              <div class="star-range-handle" id="accuracy-max-handle" data-accuracy-handle="max" role="slider" tabindex="0" aria-label="Maximum existing map accuracy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="95" aria-valuetext="95 percent maximum"></div>
+              <div
+                class="star-range-fill"
+                id="accuracy-range-fill"
+                aria-hidden="true"
+              ></div>
+              <div
+                class="star-range-handle"
+                id="accuracy-min-handle"
+                data-accuracy-handle="min"
+                role="slider"
+                tabindex="0"
+                aria-label="Minimum existing map accuracy"
+                aria-valuemin="0"
+                aria-valuemax="95"
+                aria-valuenow="0"
+                aria-valuetext="0 percent minimum"
+              ></div>
+              <div
+                class="star-range-handle"
+                id="accuracy-max-handle"
+                data-accuracy-handle="max"
+                role="slider"
+                tabindex="0"
+                aria-label="Maximum existing map accuracy"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="95"
+                aria-valuetext="95 percent maximum"
+              ></div>
             </div>
             <div class="range-labels"><span>0%</span><span>100%</span></div>
           </section>
@@ -198,7 +234,6 @@
               >↗</a
             >
           </section>
-
         </aside>
 
         <section class="results-panel" aria-label="Playlist preview">
@@ -238,8 +273,7 @@
           </div>
 
           <div class="list-header" aria-hidden="true">
-            <span>MAP</span><span>DIFFICULTY</span
-            ><span>ACCURACY</span>
+            <span>MAP</span><span>DIFFICULTY</span><span>ACCURACY</span>
           </div>
           <div id="track-list" class="track-list">
             <div class="empty-state" id="empty-state">
@@ -274,7 +308,9 @@
             <div class="rail-rule"></div>
             <section class="star-setting" aria-labelledby="ranked-star-label">
               <div class="setting-heading">
-                <label class="section-label" id="ranked-star-label">STAR RANGE</label>
+                <label class="section-label" id="ranked-star-label"
+                  >STAR RANGE</label
+                >
                 <output class="star-range-output" id="ranked-star-range-output"
                   >0.0 - 10.0 STARS</output
                 >
@@ -355,6 +391,10 @@
               </button>
             </div>
           </div>
+          <label class="export-toggle" for="ranked-split-difficulties">
+            <input id="ranked-split-difficulties" type="checkbox" checked />
+            <span>Separate each difficulty in playlist</span>
+          </label>
           <div
             class="status-line"
             id="ranked-status-line"
@@ -365,8 +405,7 @@
             <span id="ranked-status-text"></span>
           </div>
           <div class="list-header ranked-list-header" aria-hidden="true">
-            <span>MAP</span><span>DIFFICULTY</span
-            ><span>STARS</span>
+            <span>MAP</span><span>DIFFICULTY</span><span>STARS</span>
           </div>
           <div id="ranked-track-list" class="track-list">
             <div class="empty-state" id="ranked-empty-state">
