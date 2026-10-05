@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#19181e" />
+    <meta
+      name="description"
+      content="ScoreSaber ranked-map playlist tools."
+    />
+    <title>ScoreSaber Playlist Tools</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <span class="wordmark">ScoreSaber Playlist Maker</span>
+      <nav class="utility-nav" aria-label="Playlist utilities">
+        <a
+          href="#lowest-accuracy"
+          data-utility-link="accuracy"
+          aria-current="page"
+          >Lowest Accuracy Playlist</a
+        >
+        <a href="#ranked-maps" data-utility-link="ranked"
+          >Ranked Maps Playlist</a
+        >
+      </nav>
+      <a
+        class="docs-link"
+        href="https://scoresaber.com/api/docs#description/introduction"
+        target="_blank"
+        rel="noreferrer"
+        >API DOCS <span aria-hidden="true">↗</span></a
+      >
+    </header>
+
+    <main class="app-shell">
+      <section
+        class="intro-row utility-view"
+        id="accuracy-intro"
+        data-utility-view="accuracy"
+        aria-labelledby="page-title"
+      >
+        <div>
+          <h1 id="page-title">Lowest Accuracy Playlist</h1>
+        </div>
+      </section>
+
+      <div
+        class="workspace utility-view"
+        id="accuracy-view"
+        data-utility-view="accuracy"
+      >
+        <aside class="control-rail" aria-label="Playlist settings">
+          <form id="player-form" class="player-form">
+            <label class="section-label" for="player-input">PLAYER PROFILE</label>
+            <div class="input-wrap">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="3.5"></circle>
+                <path d="M4.5 20c.5-4 3-6 7.5-6s7 2 7.5 6"></path>
+              </svg>
+              <input
+                id="player-input"
+                name="player"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Player name, ID, or profile URL"
+                required
+              />
+            </div>
+            <div class="player-match" id="player-match" hidden>
+              <label for="player-match-select">Matching profiles</label>
+              <select
+                id="player-match-select"
+                aria-label="Choose matching ScoreSaber profile"
+              ></select>
+            </div>
+            <button class="build-button" id="build-button" type="submit">
+              <span>Fetch scores</span
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M5 12h13M13 6l6 6-6 6"></path>
+              </svg>
+            </button>
+          </form>
+
+          <div class="rail-rule"></div>
+
+          <section class="size-setting" aria-labelledby="size-label">
+            <div class="setting-heading">
+              <label class="section-label" id="size-label" for="size-slider">PLAYLIST SIZE</label>
+              <output id="size-output" for="size-slider">50</output>
+            </div>
+            <input
+              id="size-slider"
+              type="range"
+              min="5"
+              max="50"
+              step="5"
+              value="50"
+              aria-label="Number of lowest-accuracy maps in playlist"
+            />
+            <div class="range-labels">
+              <span>5 MAPS</span><span>50 MAPS</span>
+            </div>
+          </section>
+
+          <div class="rail-rule"></div>
+
+          <section class="star-setting" aria-labelledby="star-label">
+            <div class="setting-heading">
+              <label class="section-label" id="star-label">STAR RANGE</label>
+              <output class="star-range-output" id="star-range-output"
+                >0.0 - 20.0 STARS</output
+              >
+            </div>
+            <div
+              class="star-range"
+              id="star-range-control"
+              role="group"
+              aria-labelledby="star-label"
+            >
+              <div class="star-range-track" aria-hidden="true"></div>
+              <div
+                class="star-range-fill"
+                id="star-range-fill"
+                aria-hidden="true"
+              ></div>
+              <div
+                class="star-range-handle"
+                id="star-min-handle"
+                role="slider"
+                tabindex="0"
+                aria-label="Minimum map star rating"
+                aria-valuemin="0"
+                aria-valuemax="20"
+                aria-valuenow="0"
+                aria-valuetext="0.0 stars minimum"
+                data-star-handle="min"
+              ></div>
+              <div
+                class="star-range-handle"
+                id="star-max-handle"
+                role="slider"
+                tabindex="0"
+                aria-label="Maximum map star rating"
+                aria-valuemin="0"
+                aria-valuemax="20"
+                aria-valuenow="20"
+                aria-valuetext="20.0 stars maximum"
+                data-star-handle="max"
+              ></div>
+            </div>
+            <div class="range-labels">
+              <span>0 STARS</span><span>20 STARS</span>
+            </div>
+          </section>
+
+          <div class="rail-rule"></div>
+
+          <section class="accuracy-setting" aria-labelledby="accuracy-label">
+            <div class="setting-heading">
+              <label
+                class="section-label"
+                id="accuracy-label"
+                for="accuracy-slider"
+                >MAX EXISTING ACCURACY</label
+              >
+              <output id="accuracy-output" for="accuracy-slider">95%</output>
+            </div>
+            <input
+              id="accuracy-slider"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="95"
+              aria-label="Maximum existing map accuracy"
+            />
+            <div class="range-labels"><span>0%</span><span>100%</span></div>
+          </section>
+
+          <div class="rail-rule"></div>
+
+          <section
+            class="player-card"
+            id="player-card"
+            hidden
+            aria-live="polite"
+          >
+            <div class="player-avatar" id="player-avatar"><span>?</span></div>
+            <div class="player-details">
+              <span class="player-kicker">PROFILE SELECTED</span
+              ><strong id="player-name">Player</strong
+              ><span id="player-subtitle">ScoreSaber profile</span>
+            </div>
+            <a
+              id="player-link"
+              class="external-link"
+              href="#"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Open ScoreSaber profile"
+              title="Open ScoreSaber profile"
+              >↗</a
+            >
+          </section>
+
+        </aside>
+
+        <section class="results-panel" aria-label="Playlist preview">
+          <div class="results-head">
+            <div class="results-title-group">
+              <p class="section-label">LOWEST ACCURACY</p>
+              <h2 id="results-title">No playlist loaded</h2>
+              <p class="results-subtitle" id="results-subtitle">
+                Enter a player to load maps.
+              </p>
+            </div>
+            <div class="results-actions">
+              <span id="track-count" class="track-count">0 MAPS</span>
+              <button
+                id="download-button"
+                class="download-button"
+                type="button"
+                disabled
+                title="Download Beat Saber playlist"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"></path>
+                </svg>
+                <span>Export .bplist</span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="status-line"
+            id="status-line"
+            role="status"
+            aria-live="polite"
+            hidden
+          >
+            <span id="status-text"></span>
+          </div>
+
+          <div class="list-header" aria-hidden="true">
+            <span>MAP</span><span>DIFFICULTY</span
+            ><span>ACCURACY</span>
+          </div>
+          <div id="track-list" class="track-list">
+            <div class="empty-state" id="empty-state">
+              <p class="empty-title">No maps loaded</p>
+            </div>
+          </div>
+          <div id="limit-note" class="limit-note" hidden></div>
+        </section>
+      </div>
+
+      <section
+        class="intro-row utility-view"
+        id="ranked-intro"
+        data-utility-view="ranked"
+        hidden
+        aria-labelledby="ranked-page-title"
+      >
+        <div>
+          <h1 id="ranked-page-title">Ranked Maps Playlist</h1>
+        </div>
+      </section>
+
+      <div
+        class="workspace utility-view"
+        id="ranked-view"
+        data-utility-view="ranked"
+        hidden
+      >
+        <aside class="control-rail" aria-label="Ranked map filters">
+          <form id="ranked-form">
+            <p class="section-label">MAP FILTERS</p>
+            <div class="rail-rule"></div>
+            <section class="star-setting" aria-labelledby="ranked-star-label">
+              <div class="setting-heading">
+                <label class="section-label" id="ranked-star-label">STAR RANGE</label>
+                <output class="star-range-output" id="ranked-star-range-output"
+                  >0.0 - 10.0 STARS</output
+                >
+              </div>
+              <div
+                class="star-range"
+                id="ranked-star-range-control"
+                role="group"
+                aria-labelledby="ranked-star-label"
+              >
+                <div class="star-range-track" aria-hidden="true"></div>
+                <div
+                  class="star-range-fill"
+                  id="ranked-star-range-fill"
+                  aria-hidden="true"
+                ></div>
+                <div
+                  class="star-range-handle"
+                  id="ranked-star-min-handle"
+                  data-ranked-star-handle="min"
+                  role="slider"
+                  tabindex="0"
+                  aria-label="Minimum ranked map star rating"
+                  aria-valuemin="0"
+                  aria-valuemax="10"
+                  aria-valuenow="0"
+                  aria-valuetext="0.0 stars minimum"
+                ></div>
+                <div
+                  class="star-range-handle"
+                  id="ranked-star-max-handle"
+                  data-ranked-star-handle="max"
+                  role="slider"
+                  tabindex="0"
+                  aria-label="Maximum ranked map star rating"
+                  aria-valuemin="0"
+                  aria-valuemax="20"
+                  aria-valuenow="10"
+                  aria-valuetext="10.0 stars maximum"
+                ></div>
+              </div>
+              <div class="range-labels">
+                <span>0 STARS</span><span>20 STARS</span>
+              </div>
+            </section>
+            <div class="rail-rule"></div>
+            <button class="build-button" id="ranked-fetch-button" type="submit">
+              <span>Fetch ranked maps</span>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M5 12h13M13 6l6 6-6 6"></path>
+              </svg>
+            </button>
+          </form>
+        </aside>
+        <section
+          class="results-panel"
+          aria-label="Ranked maps playlist preview"
+        >
+          <div class="results-head">
+            <div class="results-title-group">
+              <p class="section-label">MATCHING RANKED DIFFICULTIES</p>
+              <h2 id="ranked-results-title">No maps loaded</h2>
+              <p class="results-subtitle" id="ranked-results-subtitle"></p>
+            </div>
+            <div class="results-actions">
+              <span id="ranked-count" class="track-count">0 DIFFICULTIES</span>
+              <button
+                id="ranked-download-button"
+                class="download-button"
+                type="button"
+                disabled
+                title="Download all matching ranked maps"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"></path>
+                </svg>
+                <span>Export .bplist</span>
+              </button>
+            </div>
+          </div>
+          <div
+            class="status-line"
+            id="ranked-status-line"
+            role="status"
+            aria-live="polite"
+            hidden
+          >
+            <span id="ranked-status-text"></span>
+          </div>
+          <div class="list-header ranked-list-header" aria-hidden="true">
+            <span>MAP</span><span>DIFFICULTY</span
+            ><span>STARS</span>
+          </div>
+          <div id="ranked-track-list" class="track-list">
+            <div class="empty-state" id="ranked-empty-state">
+              <p class="empty-title">No maps loaded</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>
