@@ -95,13 +95,13 @@
               id="size-slider"
               type="range"
               min="5"
-              max="50"
+              max="500"
               step="5"
               value="50"
               aria-label="Number of lowest-accuracy maps in playlist"
             />
             <div class="range-labels">
-              <span>5 MAPS</span><span>50 MAPS</span>
+              <span>5 MAPS</span><span>500 MAPS</span>
             </div>
           </section>
 
@@ -160,23 +160,15 @@
 
           <section class="accuracy-setting" aria-labelledby="accuracy-label">
             <div class="setting-heading">
-              <label
-                class="section-label"
-                id="accuracy-label"
-                for="accuracy-slider"
-                >MAX EXISTING ACCURACY</label
-              >
-              <output id="accuracy-output" for="accuracy-slider">95%</output>
+              <label class="section-label" id="accuracy-label">EXISTING ACCURACY</label>
+              <output class="star-range-output" id="accuracy-range-output">0% - 95%</output>
             </div>
-            <input
-              id="accuracy-slider"
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value="95"
-              aria-label="Maximum existing map accuracy"
-            />
+            <div class="star-range" id="accuracy-range-control" role="group" aria-labelledby="accuracy-label">
+              <div class="star-range-track" aria-hidden="true"></div>
+              <div class="star-range-fill" id="accuracy-range-fill" aria-hidden="true"></div>
+              <div class="star-range-handle" id="accuracy-min-handle" data-accuracy-handle="min" role="slider" tabindex="0" aria-label="Minimum existing map accuracy" aria-valuemin="0" aria-valuemax="95" aria-valuenow="0" aria-valuetext="0 percent minimum"></div>
+              <div class="star-range-handle" id="accuracy-max-handle" data-accuracy-handle="max" role="slider" tabindex="0" aria-label="Maximum existing map accuracy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="95" aria-valuetext="95 percent maximum"></div>
+            </div>
             <div class="range-labels"><span>0%</span><span>100%</span></div>
           </section>
 

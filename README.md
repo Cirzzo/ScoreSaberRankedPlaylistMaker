@@ -2,7 +2,7 @@
 
 Two browser-based Beat Saber playlist utilities powered by ScoreSaber API v2:
 
-- **Lowest Accuracy Playlist** builds a playlist from a player's ranked personal bests.
+- **Lowest Accuracy Playlist** builds a playlist from a player's ranked personal bests within selected star and existing-accuracy ranges.
 - **Ranked Maps Playlist** exports every ranked difficulty in a selected star range.
 
 ## GitHub Pages

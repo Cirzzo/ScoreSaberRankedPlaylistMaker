@@ -10,8 +10,11 @@ const playerMatchSelect = document.querySelector("#player-match-select");
 const buildButton = document.querySelector("#build-button");
 const sizeSlider = document.querySelector("#size-slider");
 const sizeOutput = document.querySelector("#size-output");
-const accuracySlider = document.querySelector("#accuracy-slider");
-const accuracyOutput = document.querySelector("#accuracy-output");
+const accuracyRangeControl = document.querySelector("#accuracy-range-control");
+const accuracyRangeFill = document.querySelector("#accuracy-range-fill");
+const accuracyMinHandle = document.querySelector("#accuracy-min-handle");
+const accuracyMaxHandle = document.querySelector("#accuracy-max-handle");
+const accuracyRangeOutput = document.querySelector("#accuracy-range-output");
 const starRangeControl = document.querySelector("#star-range-control");
 const starRangeFill = document.querySelector("#star-range-fill");
 const starMinHandle = document.querySelector("#star-min-handle");
@@ -65,6 +68,10 @@ let activeStarHandle = null;
 let activeStarPointerId = null;
 let minimumStars = 0;
 let maximumStars = 10;
+let minimumAccuracy = 0;
+let maximumAccuracy = 95;
+let activeAccuracyHandle = null;
+let activeAccuracyPointerId = null;
 let matchedPlayers = [];
 let matchedPlayerQuery = "";
 let rankedEntries = [];
@@ -80,15 +87,6 @@ sizeSlider.addEventListener("input", () => {
   renderTracks();
 });
 
-accuracySlider.addEventListener("input", () => {
-  accuracyOutput.value = `${accuracySlider.value}%`;
-  accuracyOutput.textContent = `${accuracySlider.value}%`;
-  if (loadedPlayerId) {
-    window.clearTimeout(starRangeRefreshTimer);
-    starRangeRefreshTimer = window.setTimeout(() => form.requestSubmit(), 350);
-  }
-});
-
 starRangeControl.addEventListener("pointerdown", handleStarPointerDown);
 starRangeControl.addEventListener("pointermove", handleStarPointerMove);
 starRangeControl.addEventListener("pointerup", endStarPointerDrag);
@@ -96,6 +94,13 @@ starRangeControl.addEventListener("pointercancel", endStarPointerDrag);
 starMinHandle.addEventListener("keydown", handleStarKeydown);
 starMaxHandle.addEventListener("keydown", handleStarKeydown);
 updateStarRangeDisplay();
+accuracyRangeControl.addEventListener("pointerdown", handleAccuracyPointerDown);
+accuracyRangeControl.addEventListener("pointermove", handleAccuracyPointerMove);
+accuracyRangeControl.addEventListener("pointerup", endAccuracyPointerDrag);
+accuracyRangeControl.addEventListener("pointercancel", endAccuracyPointerDrag);
+accuracyMinHandle.addEventListener("keydown", handleAccuracyKeydown);
+accuracyMaxHandle.addEventListener("keydown", handleAccuracyKeydown);
+updateAccuracyRangeDisplay();
 
 utilityLinks.forEach((link) =>
   link.addEventListener("click", () => {
@@ -228,7 +233,8 @@ form.addEventListener("submit", async (event) => {
     const requestedCount = Number(sizeSlider.value);
     const requestedMinimumStars = minimumStars;
     const requestedMaximumStars = maximumStars;
-    const requestedMaximumAccuracy = Number(accuracySlider.value);
+    const requestedMinimumAccuracy = minimumAccuracy;
+    const requestedMaximumAccuracy = maximumAccuracy;
     for (
       let page = totalPages;
       page >= 1 && scores.length < requestedCount;
@@ -256,6 +262,7 @@ form.addEventListener("submit", async (event) => {
           !Number.isFinite(accuracy) ||
           accuracy < 0 ||
           accuracy > 1 ||
+          accuracy * 100 < requestedMinimumAccuracy ||
           accuracy * 100 > requestedMaximumAccuracy ||
           !Number.isFinite(stars) ||
           stars < requestedMinimumStars ||
@@ -286,13 +293,12 @@ form.addEventListener("submit", async (event) => {
     if (scores.length === 0) {
       resultsTitle.innerHTML =
         'No maps match these filters<span class="title-period">.</span>';
-      resultsSubtitle.textContent =
-        "Try raising the maximum accuracy or widening the star range.";
+      resultsSubtitle.textContent = "Try widening the accuracy or star range.";
       setStatus("No ranked maps match the selected accuracy and star limits.");
     } else {
       resultsTitle.innerHTML =
         'Your next run starts here<span class="title-period">.</span>';
-      resultsSubtitle.textContent = `${scores.length} ranked map${scores.length === 1 ? "" : "s"} at or below ${requestedMaximumAccuracy}% accuracy, from ${requestedMinimumStars.toFixed(1)} to ${requestedMaximumStars.toFixed(1)} stars.`;
+      resultsSubtitle.textContent = `${scores.length} ranked maps at ${requestedMinimumAccuracy}%–${requestedMaximumAccuracy}% accuracy and ${requestedMinimumStars.toFixed(1)}–${requestedMaximumStars.toFixed(1)} stars.`;
     }
   } catch (error) {
     if (requestId !== activeRequest) return;
@@ -1019,9 +1025,135 @@ function updateStarHandle(handle, value, bound, label) {
 function getSelectedMaps() {
   return allScores
     .filter(
-      (score) => score.stars >= minimumStars && score.stars <= maximumStars,
+      (score) =>
+        score.stars >= minimumStars &&
+        score.stars <= maximumStars &&
+        score.accuracy >= minimumAccuracy &&
+        score.accuracy <= maximumAccuracy,
     )
     .slice(0, Number(sizeSlider.value));
+}
+
+function handleAccuracyPointerDown(event) {
+  const handle = event.target.closest("[data-accuracy-handle]");
+  if (handle) {
+    activeAccuracyHandle = handle;
+  } else {
+    const value = valueFromAccuracyPointer(event);
+    activeAccuracyHandle =
+      Math.abs(value - minimumAccuracy) <= Math.abs(value - maximumAccuracy)
+        ? accuracyMinHandle
+        : accuracyMaxHandle;
+    setAccuracyHandleValue(activeAccuracyHandle, value);
+  }
+  activeAccuracyPointerId = event.pointerId;
+  try {
+    accuracyRangeControl.setPointerCapture(event.pointerId);
+  } catch {
+    // The range still follows pointermove when capture is unavailable.
+  }
+  activeAccuracyHandle.focus();
+  event.preventDefault();
+}
+
+function handleAccuracyPointerMove(event) {
+  if (!activeAccuracyHandle || event.pointerId !== activeAccuracyPointerId)
+    return;
+  setAccuracyHandleValue(activeAccuracyHandle, valueFromAccuracyPointer(event));
+}
+
+function endAccuracyPointerDrag(event) {
+  if (event.pointerId !== activeAccuracyPointerId) return;
+  activeAccuracyHandle = null;
+  activeAccuracyPointerId = null;
+}
+
+function valueFromAccuracyPointer(event) {
+  const bounds = accuracyRangeControl.getBoundingClientRect();
+  return clampAccuracyValue(
+    ((event.clientX - bounds.left) / bounds.width) * 100,
+  );
+}
+
+function handleAccuracyKeydown(event) {
+  const handle = event.currentTarget;
+  const isMinimum = handle === accuracyMinHandle;
+  const currentValue = isMinimum ? minimumAccuracy : maximumAccuracy;
+  let nextValue;
+  switch (event.key) {
+    case "ArrowLeft":
+    case "ArrowDown":
+      nextValue = currentValue - 1;
+      break;
+    case "ArrowRight":
+    case "ArrowUp":
+      nextValue = currentValue + 1;
+      break;
+    case "PageDown":
+      nextValue = currentValue - 5;
+      break;
+    case "PageUp":
+      nextValue = currentValue + 5;
+      break;
+    case "Home":
+      nextValue = 0;
+      break;
+    case "End":
+      nextValue = 100;
+      break;
+    default:
+      return;
+  }
+  event.preventDefault();
+  setAccuracyHandleValue(handle, nextValue);
+}
+
+function setAccuracyHandleValue(handle, value) {
+  const nextValue = clampAccuracyValue(value);
+  if (handle === accuracyMinHandle) {
+    minimumAccuracy = Math.min(nextValue, maximumAccuracy);
+  } else {
+    maximumAccuracy = Math.max(nextValue, minimumAccuracy);
+  }
+  updateAccuracyRangeDisplay();
+  if (loadedPlayerId) {
+    window.clearTimeout(starRangeRefreshTimer);
+    starRangeRefreshTimer = window.setTimeout(() => form.requestSubmit(), 350);
+  }
+}
+
+function clampAccuracyValue(value) {
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function updateAccuracyRangeDisplay() {
+  accuracyRangeOutput.value = `${minimumAccuracy}% - ${maximumAccuracy}%`;
+  accuracyRangeOutput.textContent = accuracyRangeOutput.value;
+  accuracyRangeFill.style.left = `${minimumAccuracy}%`;
+  accuracyRangeFill.style.width = `${maximumAccuracy - minimumAccuracy}%`;
+  updateAccuracyHandle(
+    accuracyMinHandle,
+    minimumAccuracy,
+    maximumAccuracy,
+    "minimum",
+  );
+  updateAccuracyHandle(
+    accuracyMaxHandle,
+    maximumAccuracy,
+    minimumAccuracy,
+    "maximum",
+  );
+}
+
+function updateAccuracyHandle(handle, value, bound, label) {
+  handle.style.left = `${value}%`;
+  handle.setAttribute("aria-valuemin", String(label === "minimum" ? 0 : bound));
+  handle.setAttribute(
+    "aria-valuemax",
+    String(label === "minimum" ? bound : 100),
+  );
+  handle.setAttribute("aria-valuenow", String(value));
+  handle.setAttribute("aria-valuetext", `${value}% ${label}`);
 }
 
 function showPlayer(playerId, player) {
@@ -1083,7 +1215,7 @@ function downloadPlaylist() {
   const playlist = {
     playlistTitle: `${playerLabel} - Lowest Accuracy`,
     playlistAuthor: "Lowlight - ScoreSaber Playlist Studio",
-    playlistDescription: `${selected.length} lowest-accuracy ranked maps at or below ${accuracySlider.value}% accuracy, from ${minimumStars.toFixed(1)} to ${maximumStars.toFixed(1)} stars.`,
+    playlistDescription: `${selected.length} lowest-accuracy ranked maps from ${minimumAccuracy}% to ${maximumAccuracy}% accuracy and ${minimumStars.toFixed(1)} to ${maximumStars.toFixed(1)} stars.`,
     songs: [...songsByHash.values()],
     coverImage: "",
     allowDuplicates: false,
