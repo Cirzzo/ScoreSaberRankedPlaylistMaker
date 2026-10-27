@@ -181,7 +181,7 @@ export function initRankedTool(): void {
     const mapCount = uniqueMapCount();
     const playlist: Playlist = {
       playlistTitle: `Ranked Maps ${low}-${high} Stars`,
-      playlistAuthor: "ScoreSaber Playlist Tools",
+      playlistAuthor: "Cirzzo's Playlist Maker",
       playlistDescription: split
         ? `${entries.length} ranked difficulties as separate entries across ${mapCount} maps.`
         : `${entries.length} ranked difficulties grouped across ${mapCount} maps.`,

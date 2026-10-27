@@ -407,10 +407,14 @@ export function initAccuracyTool(): void {
     const selected = getSelectedMaps();
     if (!selected.length) return;
     const playerLabel = currentPlayer?.name || `Player ${currentPlayerId}`;
+    const accLow = accuracy.low.toFixed(2);
+    const accHigh = accuracy.high.toFixed(2);
+    const starsLow = stars.low.toFixed(1);
+    const starsHigh = stars.high.toFixed(1);
     const playlist: Playlist = {
-      playlistTitle: `${playerLabel} - Lowest Accuracy`,
-      playlistAuthor: "Lowlight - ScoreSaber Playlist Studio",
-      playlistDescription: `${selected.length} lowest-accuracy ranked maps from ${accuracy.low}% to ${accuracy.high}% accuracy and ${stars.low.toFixed(1)} to ${stars.high.toFixed(1)} stars.`,
+      playlistTitle: `${playerLabel} - Lowest Accuracy ${accLow}% to ${accHigh}%`,
+      playlistAuthor: "Cirzzo's Playlist Maker",
+      playlistDescription: `${selected.length} lowest-accuracy ranked maps from ${accLow}% to ${accHigh}% accuracy and ${starsLow} to ${starsHigh} stars.`,
       songs: buildSongs(
         selected.map((s) => ({ map: s.map, difficulty: s.difficulty })),
         false,
