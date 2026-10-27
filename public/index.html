@@ -76,6 +76,7 @@
                 aria-label="Choose matching ScoreSaber profile"
               ></select>
             </div>
+            <p class="player-search-status" id="player-search-status" aria-live="polite" hidden></p>
             <button class="build-button" id="build-button" type="submit">
               <span>Fetch scores</span
               ><svg aria-hidden="true" viewBox="0 0 24 24">
@@ -305,6 +306,40 @@
         <aside class="control-rail" aria-label="Ranked map filters">
           <form id="ranked-form">
             <p class="section-label">MAP FILTERS</p>
+            <div class="rail-rule"></div>
+            <label class="ranked-unplayed-toggle" for="ranked-unplayed-toggle">
+              <input id="ranked-unplayed-toggle" type="checkbox" />
+              <span class="checkmark" aria-hidden="true"></span>
+              <span>Hide maps I’ve played</span>
+            </label>
+            <div id="ranked-player-fields" hidden>
+              <label class="section-label" for="ranked-player-input"
+                >PLAYER PROFILE</label
+              >
+              <div class="input-wrap">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <circle cx="12" cy="8" r="3.5"></circle>
+                  <path d="M4.5 20c.5-4 3-6 7.5-6s7 2 7.5 6"></path>
+                </svg>
+                <input
+                  id="ranked-player-input"
+                  name="ranked-player"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Player name, ID, or profile URL"
+                />
+              </div>
+              <div class="player-match" id="ranked-player-match" hidden>
+                <label for="ranked-player-match-select"
+                  >Matching profiles</label
+                >
+                <select
+                  id="ranked-player-match-select"
+                  aria-label="Choose matching ScoreSaber profile"
+                ></select>
+              </div>
+              <p class="player-search-status" id="ranked-player-search-status" aria-live="polite" hidden></p>
+            </div>
             <div class="rail-rule"></div>
             <section class="star-setting" aria-labelledby="ranked-star-label">
               <div class="setting-heading">

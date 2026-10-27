@@ -31,6 +31,7 @@ export function initAccuracyTool(): void {
   const playerInput = $<HTMLInputElement>("#player-input");
   const playerMatch = $("#player-match");
   const playerMatchSelect = $<HTMLSelectElement>("#player-match-select");
+  const playerSearchStatus = $("#player-search-status");
   const buildButton = $<HTMLButtonElement>("#build-button");
   const sizeSlider = $<HTMLInputElement>("#size-slider");
   const sizeOutput = $("#size-output");
@@ -56,6 +57,8 @@ export function initAccuracyTool(): void {
   let refreshTimer = 0;
   let matchedPlayers: Player[] = [];
   let matchedPlayerQuery = "";
+  let playerSearchTimer = 0;
+  let playerSearchVersion = 0;
 
   // Changing a filter after a profile is loaded re-runs the scan (debounced).
   const scheduleRefresh = (): void => {
@@ -100,10 +103,20 @@ export function initAccuracyTool(): void {
   });
 
   playerInput.addEventListener("input", () => {
+    const version = ++playerSearchVersion;
+    window.clearTimeout(playerSearchTimer);
     matchedPlayers = [];
     matchedPlayerQuery = "";
     playerMatchSelect.replaceChildren();
     playerMatch.hidden = true;
+    playerSearchStatus.hidden = true;
+    const query = playerInput.value.trim();
+    if (query.length < 3 || extractPlayerId(query)) return;
+    playerSearchStatus.textContent = "Searching profiles...";
+    playerSearchStatus.hidden = false;
+    playerSearchTimer = window.setTimeout(() => {
+      void previewPlayerSearch(query, version);
+    }, 250);
   });
 
   downloadButton.addEventListener("click", download);
@@ -111,6 +124,30 @@ export function initAccuracyTool(): void {
     event.preventDefault();
     void handleSubmit();
   });
+
+  async function previewPlayerSearch(query: string, version: number): Promise<void> {
+    try {
+      const matches = await fetchPlayersByName(query);
+      if (version !== playerSearchVersion || query !== playerInput.value.trim()) return;
+      const exactMatches = matches.filter((player) =>
+        [player.name, player.playerNameInGame].some(
+          (name) => name?.trim().toLocaleLowerCase() === query.toLocaleLowerCase(),
+        ),
+      );
+      const choices = exactMatches.length ? exactMatches : matches;
+      if (choices.length) {
+        showPlayerMatches(query, choices);
+        playerSearchStatus.hidden = true;
+      } else {
+        playerSearchStatus.textContent = "No matching profiles found.";
+        playerSearchStatus.hidden = false;
+      }
+    } catch (error) {
+      if (version !== playerSearchVersion) return;
+      playerSearchStatus.textContent = errorMessage(error, "Player search failed.");
+      playerSearchStatus.hidden = false;
+    }
+  }
 
   async function handleSubmit(): Promise<void> {
     const playerQuery = playerInput.value.trim();
