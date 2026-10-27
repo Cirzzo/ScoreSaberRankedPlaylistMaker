@@ -40,9 +40,9 @@ input {
 .topbar {
   min-height: 54px;
   padding: 0 max(20px, calc((100vw - 1200px) / 2));
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   border-bottom: 1px solid var(--line);
 }
 
@@ -74,16 +74,6 @@ input {
 
 .utility-view[hidden] {
   display: none !important;
-}
-
-.docs-link {
-  color: var(--accent);
-  font-size: 12px;
-  text-decoration: none;
-}
-
-.docs-link:hover {
-  text-decoration: underline;
 }
 
 .app-shell,
@@ -753,6 +743,7 @@ h2 {
   }
 
   .topbar {
+    display: flex;
     flex-wrap: wrap;
     gap: 6px 10px;
     padding-inline: 12px;
@@ -767,10 +758,6 @@ h2 {
 
   .utility-nav a {
     padding-inline: 8px;
-  }
-
-  .docs-link {
-    margin-left: auto;
   }
 
   .workspace {
