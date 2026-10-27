@@ -23,12 +23,18 @@ async function getPaged<T>(
   messages: ErrorMessages,
 ): Promise<Paged<T>> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    REQUEST_TIMEOUT_MS,
+  );
   let response: Response;
   try {
-    response = await fetch(`${API_ROOT}${path}?${new URLSearchParams(params)}`, {
-      signal: controller.signal,
-    });
+    response = await fetch(
+      `${API_ROOT}${path}?${new URLSearchParams(params)}`,
+      {
+        signal: controller.signal,
+      },
+    );
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(messages.timeout);

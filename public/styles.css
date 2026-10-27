@@ -316,6 +316,22 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
 }
 
+.range-value {
+  cursor: text;
+  border-bottom: 1px dashed currentColor;
+}
+
+.range-value-input {
+  width: 4.5em;
+  padding: 2px 4px;
+  border: 1px solid var(--text);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: right;
+}
+
 .star-range {
   position: relative;
   height: 24px;

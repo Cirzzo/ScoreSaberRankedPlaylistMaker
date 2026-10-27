@@ -25,7 +25,9 @@ if (dev) {
   const ctx = await esbuild.context(options);
   await ctx.watch();
   const { port } = await ctx.serve({ servedir: "dist", port: 8000 });
-  console.log(`Dev server: http://localhost:${port} (restart to pick up changes in public/)`);
+  console.log(
+    `Dev server: http://localhost:${port} (restart to pick up changes in public/)`,
+  );
 } else {
   await esbuild.build(options);
 }

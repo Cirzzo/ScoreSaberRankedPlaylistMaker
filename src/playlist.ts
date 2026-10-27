@@ -25,7 +25,10 @@ export interface Playlist {
 export function formatPlaylistDifficulty(
   difficulty: DifficultyInfo,
 ): PlaylistDifficulty {
-  const rawName = String(difficulty.rawDifficulty || "Expert").replace(/^_/, "");
+  const rawName = String(difficulty.rawDifficulty || "Expert").replace(
+    /^_/,
+    "",
+  );
   const gameMode = String(difficulty.gameMode || "SoloStandard");
   return {
     name: rawName.split("_")[0] || "Expert",
@@ -42,7 +45,10 @@ export interface PlaylistItem {
  * Builds the `songs` array. With `split`, every item becomes its own entry;
  * otherwise items are grouped by map hash with de-duplicated difficulties.
  */
-export function buildSongs(items: PlaylistItem[], split: boolean): PlaylistSong[] {
+export function buildSongs(
+  items: PlaylistItem[],
+  split: boolean,
+): PlaylistSong[] {
   const grouped = new Map<string, PlaylistSong>();
   const separate: PlaylistSong[] = [];
 

@@ -21,7 +21,10 @@ export function initRankedTool(): void {
   const splitToggle = $<HTMLInputElement>("#ranked-split-difficulties");
   const trackList = $("#ranked-track-list");
   const emptyState = $("#ranked-empty-state");
-  const status = new StatusLine($("#ranked-status-line"), $("#ranked-status-text"));
+  const status = new StatusLine(
+    $("#ranked-status-line"),
+    $("#ranked-status-text"),
+  );
 
   const stars = new RangeSlider({
     ...STAR_SLIDER,
@@ -60,7 +63,10 @@ export function initRankedTool(): void {
     try {
       const firstPage = await fetchRankedMapPage(1, minimumStars, maximumStars);
       if (requestId !== activeRequest) return;
-      const totalPages = Math.max(1, Number(firstPage.metadata?.totalPages) || 1);
+      const totalPages = Math.max(
+        1,
+        Number(firstPage.metadata?.totalPages) || 1,
+      );
       const totalMaps = Number(firstPage.metadata?.totalItems) || 0;
       const allMaps: RankedMap[] = [];
 
@@ -134,7 +140,9 @@ export function initRankedTool(): void {
       count.textContent = "0 DIFFICULTIES";
       resultsTitle.textContent = "Could not load ranked maps.";
       resultsSubtitle.textContent = "Retry the request.";
-      status.error(errorMessage(error, "Could not load ranked maps from ScoreSaber."));
+      status.error(
+        errorMessage(error, "Could not load ranked maps from ScoreSaber."),
+      );
     }
   }
 
@@ -154,7 +162,11 @@ export function initRankedTool(): void {
     downloadButton.disabled = false;
   }
 
-  function createRow({ map, leaderboard, stars: starValue }: RankedEntry): HTMLElement {
+  function createRow({
+    map,
+    leaderboard,
+    stars: starValue,
+  }: RankedEntry): HTMLElement {
     const cell = document.createElement("div");
     cell.className = "accuracy-cell ranked-stars-cell";
     cell.textContent = `${starValue.toFixed(2)}★`;

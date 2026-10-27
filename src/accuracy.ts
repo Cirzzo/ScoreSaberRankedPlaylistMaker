@@ -1,9 +1,5 @@
 import { $, errorMessage, pause, setButtonLabel, setTitle } from "./dom";
-import {
-  fetchPlayersByName,
-  fetchScorePage,
-  PAGE_PAUSE_MS,
-} from "./api";
+import { fetchPlayersByName, fetchScorePage, PAGE_PAUSE_MS } from "./api";
 import {
   buildSongs,
   downloadPlaylist,
@@ -12,7 +8,13 @@ import {
 } from "./playlist";
 import { RangeSlider, STAR_SLIDER } from "./slider";
 import { StatusLine, createTrackRow } from "./ui";
-import type { DifficultyInfo, Leaderboard, MapInfo, Player, Score } from "./types";
+import type {
+  DifficultyInfo,
+  Leaderboard,
+  MapInfo,
+  Player,
+  Score,
+} from "./types";
 
 interface ScoreItem {
   /** Percentage, 0–100 */
@@ -139,7 +141,9 @@ export function initAccuracyTool(): void {
     trackList.replaceChildren();
     setLoading(true);
     status.show(
-      playerId ? "Connecting to ScoreSaber..." : "Searching ScoreSaber players...",
+      playerId
+        ? "Connecting to ScoreSaber..."
+        : "Searching ScoreSaber players...",
     );
     setTitle(
       resultsTitle,
@@ -194,7 +198,10 @@ export function initAccuracyTool(): void {
       const firstPage = await fetchScorePage(playerId, 1);
       if (requestId !== activeRequest) return;
 
-      const totalPages = Math.max(1, Number(firstPage.metadata?.totalPages) || 1);
+      const totalPages = Math.max(
+        1,
+        Number(firstPage.metadata?.totalPages) || 1,
+      );
       const totalItems = Number(firstPage.metadata?.totalItems) || 0;
       setTitle(resultsTitle, "Connected to ScoreSaber");
       resultsSubtitle.textContent = totalItems
@@ -279,8 +286,11 @@ export function initAccuracyTool(): void {
       const filterText = `${minAccuracy}%–${maxAccuracy}%, ${minStars.toFixed(1)}–${maxStars.toFixed(1)} stars`;
       if (scores.length === 0) {
         setTitle(resultsTitle, "No maps match these filters");
-        resultsSubtitle.textContent = "Try widening the accuracy or star range.";
-        status.show("No ranked maps match the selected accuracy and star limits.");
+        resultsSubtitle.textContent =
+          "Try widening the accuracy or star range.";
+        status.show(
+          "No ranked maps match the selected accuracy and star limits.",
+        );
       } else {
         setTitle(resultsTitle, "Your next run starts here");
         resultsSubtitle.textContent =
@@ -291,7 +301,9 @@ export function initAccuracyTool(): void {
     } catch (error) {
       if (requestId !== activeRequest) return;
       setLoading(false);
-      status.error(errorMessage(error, "Could not load this ScoreSaber profile."));
+      status.error(
+        errorMessage(error, "Could not load this ScoreSaber profile."),
+      );
       setTitle(resultsTitle, "Could not load profile");
       resultsSubtitle.textContent = "Check the player ID and try again.";
       trackCount.textContent = "0 MAPS";
@@ -323,7 +335,8 @@ export function initAccuracyTool(): void {
 
   function showPlayer(playerId: string, player: Player | null): void {
     playerCard.hidden = false;
-    const name = player?.name || player?.playerNameInGame || `Player ${playerId}`;
+    const name =
+      player?.name || player?.playerNameInGame || `Player ${playerId}`;
     playerName.textContent = name;
     playerSubtitle.textContent = player?.country
       ? `${player.country} / ScoreSaber`
@@ -360,7 +373,8 @@ export function initAccuracyTool(): void {
 
   function renderTracks(): void {
     if (!allScores.length) {
-      if (!trackList.contains(emptyState)) trackList.replaceChildren(emptyState);
+      if (!trackList.contains(emptyState))
+        trackList.replaceChildren(emptyState);
       trackCount.textContent = "0 MAPS";
       downloadButton.disabled = true;
       return;
@@ -404,6 +418,9 @@ export function initAccuracyTool(): void {
       coverImage: "",
       allowDuplicates: false,
     };
-    downloadPlaylist(playlist, `${slugify(playerLabel)}-lowest-accuracy.bplist`);
+    downloadPlaylist(
+      playlist,
+      `${slugify(playerLabel)}-lowest-accuracy.bplist`,
+    );
   }
 }

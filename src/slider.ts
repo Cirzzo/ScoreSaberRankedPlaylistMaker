@@ -46,7 +46,56 @@ export class RangeSlider {
     for (const handle of [o.minHandle, o.maxHandle]) {
       handle.addEventListener("keydown", (e) => this.onKeydown(e));
     }
+    o.output.addEventListener("dblclick", (event) => this.editValue(event));
     this.render();
+  }
+
+  private editValue(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const valueElement = target.closest<HTMLElement>("[data-range-bound]");
+    if (!valueElement || !this.o.output.contains(valueElement)) return;
+    const bound = valueElement.dataset["rangeBound"];
+    if (bound !== "minimum" && bound !== "maximum") return;
+
+    event.preventDefault();
+    const current = bound === "minimum" ? this.low : this.high;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.className = "range-value-input";
+    input.setAttribute("aria-label", `Edit ${bound} value`);
+    input.value = current.toFixed(this.o.decimals);
+    valueElement.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let finished = false;
+    const finish = (commit: boolean): void => {
+      if (finished) return;
+      finished = true;
+      if (commit) {
+        const parsed = Number(input.value.trim().replace(",", "."));
+        if (input.value.trim() !== "" && Number.isFinite(parsed)) {
+          this.setValue(
+            bound === "minimum" ? this.o.minHandle : this.o.maxHandle,
+            parsed,
+          );
+          return;
+        }
+      }
+      this.render();
+    };
+    input.addEventListener("keydown", (keyEvent) => {
+      if (keyEvent.key === "Enter") {
+        keyEvent.preventDefault();
+        finish(true);
+      } else if (keyEvent.key === "Escape") {
+        keyEvent.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener("blur", () => finish(true));
   }
 
   private clamp(value: number): number {
@@ -136,7 +185,27 @@ export class RangeSlider {
     const span = max - min;
     fill.style.left = `${((this.low - min) / span) * 100}%`;
     fill.style.width = `${((this.high - this.low) / span) * 100}%`;
-    output.textContent = this.o.formatRange(this.low, this.high);
+    const formatted = this.o.formatRange(this.low, this.high);
+    const matches = [...formatted.matchAll(/\d+(?:\.\d+)?/g)];
+    if (matches.length >= 2) {
+      const fragment = document.createDocumentFragment();
+      let offset = 0;
+      matches.slice(0, 2).forEach((match, index) => {
+        const start = match.index ?? 0;
+        fragment.append(formatted.slice(offset, start));
+        const value = document.createElement("span");
+        value.dataset["rangeBound"] = index === 0 ? "minimum" : "maximum";
+        value.textContent = match[0];
+        value.title = "Double-click to edit";
+        value.className = "range-value";
+        fragment.append(value);
+        offset = start + match[0].length;
+      });
+      fragment.append(formatted.slice(offset));
+      output.replaceChildren(fragment);
+    } else {
+      output.textContent = formatted;
+    }
     this.renderHandle(minHandle, this.low, this.high, "minimum");
     this.renderHandle(maxHandle, this.high, this.low, "maximum");
   }
