@@ -1,13 +1,18 @@
 import { $, errorMessage, pause, setButtonLabel } from "./dom";
 import {
-  fetchPlayersByName,
   fetchRankedMapPage,
   fetchScorePage,
   PAGE_PAUSE_MS,
 } from "./api";
-import { buildSongs, downloadPlaylist, type Playlist } from "./playlist";
+import {
+  buildSongs,
+  downloadPlaylist,
+  slugify,
+  type Playlist,
+} from "./playlist";
 import { RangeSlider, STAR_SLIDER } from "./slider";
 import { StatusLine, createTrackRow } from "./ui";
+import { createPlayerPicker, extractPlayerId } from "./player-picker";
 import type { Leaderboard, Player, RankedMap } from "./types";
 
 interface RankedEntry {
@@ -50,36 +55,22 @@ export function initRankedTool(): void {
 
   let entries: RankedEntry[] = [];
   let activeRequest = 0;
-  let matchedPlayers: Player[] = [];
-  let matchedPlayerQuery = "";
-  let playerSearchTimer = 0;
-  let playerSearchVersion = 0;
+  const playerPicker = createPlayerPicker({
+    input: playerInput,
+    matchContainer: playerMatch,
+    select: playerMatchSelect,
+    searchStatus: playerSearchStatus,
+  });
+  let fetchedMinimumStars = stars.low;
+  let fetchedMaximumStars = stars.high;
+  let fetchedFilterLabel: string | null = null;
 
   unplayedToggle.addEventListener("change", () => {
     playerFields.hidden = !unplayedToggle.checked;
     playerInput.required = unplayedToggle.checked;
     if (!unplayedToggle.checked) {
-      playerSearchVersion += 1;
-      window.clearTimeout(playerSearchTimer);
-      playerMatch.hidden = true;
-      playerSearchStatus.hidden = true;
+      playerPicker.reset();
     }
-  });
-  playerInput.addEventListener("input", () => {
-    const version = ++playerSearchVersion;
-    window.clearTimeout(playerSearchTimer);
-    matchedPlayers = [];
-    matchedPlayerQuery = "";
-    playerMatchSelect.replaceChildren();
-    playerMatch.hidden = true;
-    playerSearchStatus.hidden = true;
-    const query = playerInput.value.trim();
-    if (query.length < 3 || extractPlayerId(query)) return;
-    playerSearchStatus.textContent = "Searching profiles...";
-    playerSearchStatus.hidden = false;
-    playerSearchTimer = window.setTimeout(() => {
-      void previewPlayerSearch(query, version);
-    }, 250);
   });
 
   form.addEventListener("submit", (event) => {
@@ -88,30 +79,6 @@ export function initRankedTool(): void {
   });
   downloadButton.addEventListener("click", download);
 
-  async function previewPlayerSearch(query: string, version: number): Promise<void> {
-    try {
-      const matches = await fetchPlayersByName(query);
-      if (version !== playerSearchVersion || query !== playerInput.value.trim()) return;
-      const exactMatches = matches.filter((candidate) =>
-        [candidate.name, candidate.playerNameInGame].some(
-          (name) => name?.trim().toLocaleLowerCase() === query.toLocaleLowerCase(),
-        ),
-      );
-      const choices = exactMatches.length ? exactMatches : matches;
-      if (choices.length) {
-        showPlayerMatches(query, choices);
-        playerSearchStatus.hidden = true;
-      } else {
-        playerSearchStatus.textContent = "No matching profiles found.";
-        playerSearchStatus.hidden = false;
-      }
-    } catch (error) {
-      if (version !== playerSearchVersion) return;
-      playerSearchStatus.textContent = errorMessage(error, "Player search failed.");
-      playerSearchStatus.hidden = false;
-    }
-  }
-
   async function fetchAll(): Promise<void> {
     const playerQuery = unplayedToggle.checked ? playerInput.value.trim() : "";
     if (unplayedToggle.checked && !playerQuery) {
@@ -119,19 +86,14 @@ export function initRankedTool(): void {
       playerInput.focus();
       return;
     }
-    let playerId = playerQuery ? extractPlayerId(playerQuery) : "";
-    let player: Player | null = null;
-    if (playerQuery && !playerId && matchedPlayerQuery === playerQuery) {
-      player =
-        matchedPlayers.find((p) => p.id === playerMatchSelect.value) ?? null;
-      playerId = player?.id ?? "";
-    }
-    if (playerQuery && !playerId && playerQuery.length < 3) {
+    if (playerQuery && !extractPlayerId(playerQuery) && playerQuery.length < 3) {
       status.error("Player names must be at least 3 characters long.");
       playerInput.focus();
       return;
     }
 
+    let playerId = "";
+    let player: Player | null = null;
     const requestId = ++activeRequest;
     const minimumStars = stars.low;
     const maximumStars = stars.high;
@@ -146,38 +108,64 @@ export function initRankedTool(): void {
     status.show("Connecting to ScoreSaber ranked maps...");
 
     try {
-      if (playerQuery && !playerId) {
+      if (playerQuery) {
         status.show("Searching ScoreSaber players...");
-        const matches = await fetchPlayersByName(playerQuery);
+        const resolution = await playerPicker.resolve();
         if (requestId !== activeRequest) return;
-        const wanted = playerQuery.toLocaleLowerCase();
-        const exactMatches = matches.filter((candidate) =>
-          [candidate.name, candidate.playerNameInGame].some(
-            (name) => name?.trim().toLocaleLowerCase() === wanted,
-          ),
-        );
-        if (exactMatches.length === 1) player = exactMatches[0] ?? null;
-        else if (matches.length === 1) player = matches[0] ?? null;
-        else if (!matches.length)
-          throw new Error(`No ScoreSaber players found for “${playerQuery}”.`);
-        else {
-          const choices = exactMatches.length ? exactMatches : matches;
-          showPlayerMatches(playerQuery, choices);
+        if (resolution.kind === "choose") {
           status.show(
             "More than one player matched. Choose a profile, then fetch ranked maps again.",
           );
           resultsTitle.textContent = "Choose a player";
-          resultsSubtitle.textContent = `${choices.length} matching profiles found.`;
+          resultsSubtitle.textContent = `${resolution.count} matching profiles found.`;
           fetchButton.disabled = false;
           setButtonLabel(fetchButton, "Fetch ranked maps");
           count.textContent = "0 DIFFICULTIES";
           return;
         }
-        playerId = player?.id ?? "";
+        if (resolution.kind === "empty") {
+          status.error("Enter a player name, ScoreSaber ID, or profile URL.");
+          playerInput.focus();
+          return;
+        }
+        if (resolution.kind === "too-short") {
+          status.error("Player names must be at least 3 characters long.");
+          playerInput.focus();
+          return;
+        }
+        playerId = resolution.playerId;
+        player = resolution.player;
       }
-      playerMatch.hidden = true;
-      matchedPlayerQuery = "";
-      matchedPlayers = [];
+
+      if (playerQuery) playerPicker.reset();
+
+      const playedLeaderboardIds = new Set<string>();
+      if (playerId) {
+        const firstScores = await fetchScorePage(playerId, 1);
+        if (requestId !== activeRequest) return;
+        const scorePages = Math.max(
+          1,
+          Number(firstScores.metadata?.totalPages) || 1,
+        );
+        status.show(`Checking your scores... page 1 of ${scorePages}`);
+        for (let page = 1; page <= scorePages; page += 1) {
+          if (requestId !== activeRequest) return;
+          if (page > 1) {
+            await pause(PAGE_PAUSE_MS);
+            if (requestId !== activeRequest) return;
+          }
+          const payload =
+            page === 1 ? firstScores : await fetchScorePage(playerId, page);
+          if (page > 1 && requestId !== activeRequest) return;
+          for (const score of payload.data) {
+            const id = score.leaderboard?.id;
+            if (id !== undefined) playedLeaderboardIds.add(String(id));
+          }
+          if (page < scorePages) {
+            status.show(`Checking your scores... page ${page + 1} of ${scorePages}`);
+          }
+        }
+      }
 
       const firstPage = await fetchRankedMapPage(1, minimumStars, maximumStars);
       if (requestId !== activeRequest) return;
@@ -195,6 +183,7 @@ export function initRankedTool(): void {
             `Loading maps ${allMaps.length.toLocaleString()} of ${totalMaps.toLocaleString()}... page ${page} of ${totalPages}`,
           );
           await pause(PAGE_PAUSE_MS);
+          if (requestId !== activeRequest) return;
         } else {
           status.show(
             `Connected. Loading ${totalMaps.toLocaleString()} matching maps...`,
@@ -204,6 +193,7 @@ export function initRankedTool(): void {
           page === 1
             ? firstPage
             : await fetchRankedMapPage(page, minimumStars, maximumStars);
+        if (page > 1 && requestId !== activeRequest) return;
         allMaps.push(...payload.data);
         status.show(
           `Loaded ${allMaps.length.toLocaleString()} of ${totalMaps.toLocaleString()} maps... page ${page} of ${totalPages}`,
@@ -216,35 +206,9 @@ export function initRankedTool(): void {
         );
       }
 
-      const playedHashes = new Set<string>();
-      if (playerId) {
-        const firstScores = await fetchScorePage(playerId, 1);
-        if (requestId !== activeRequest) return;
-        const scorePages = Math.max(
-          1,
-          Number(firstScores.metadata?.totalPages) || 1,
-        );
-        for (let page = 1; page <= scorePages; page += 1) {
-          if (requestId !== activeRequest) return;
-          if (page > 1) {
-            status.show(
-              `Checking your scores... page ${page} of ${scorePages}`,
-            );
-            await pause(PAGE_PAUSE_MS);
-          }
-          const payload =
-            page === 1 ? firstScores : await fetchScorePage(playerId, page);
-          for (const score of payload.data) {
-            const hash = score.leaderboard?.map?.hash;
-            if (hash) playedHashes.add(hash.toUpperCase());
-          }
-        }
-      }
-
       const seen = new Set<string>();
       const collected: RankedEntry[] = [];
       for (const map of allMaps) {
-        if (playedHashes.has(map.hash.toUpperCase())) continue;
         for (const leaderboard of map.leaderboards ?? []) {
           const starValue = Number(leaderboard.realm?.stars);
           if (
@@ -258,6 +222,11 @@ export function initRankedTool(): void {
             leaderboard.id ??
               `${map.hash}:${leaderboard.gameMode}:${leaderboard.rawDifficulty}`,
           );
+          if (
+            leaderboard.id !== undefined &&
+            playedLeaderboardIds.has(String(leaderboard.id))
+          )
+            continue;
           if (seen.has(key)) continue;
           seen.add(key);
           collected.push({ map, leaderboard, stars: starValue });
@@ -271,12 +240,17 @@ export function initRankedTool(): void {
 
       if (requestId !== activeRequest) return;
       entries = collected;
+      fetchedMinimumStars = minimumStars;
+      fetchedMaximumStars = maximumStars;
+      fetchedFilterLabel = playerId
+        ? player?.name || player?.playerNameInGame || `player ${playerId}`
+        : null;
       render();
       fetchButton.disabled = false;
       setButtonLabel(fetchButton, "Refresh ranked maps");
       status.hide();
       resultsTitle.textContent = "Ranked maps ready.";
-      resultsSubtitle.textContent = `${entries.length.toLocaleString()} difficulties across ${uniqueMapCount().toLocaleString()} matching maps (${allMaps.length.toLocaleString()} maps scanned)${playerId ? `; filtered for ${player?.name || player?.playerNameInGame || `player ${playerId}`}` : ""}.`;
+      resultsSubtitle.textContent = `${entries.length.toLocaleString()} difficulties across ${uniqueMapCount().toLocaleString()} matching maps (${allMaps.length.toLocaleString()} maps scanned)${fetchedFilterLabel ? `; played difficulties hidden for ${fetchedFilterLabel}` : ""}.`;
     } catch (error) {
       if (requestId !== activeRequest) return;
       fetchButton.disabled = false;
@@ -288,31 +262,6 @@ export function initRankedTool(): void {
         errorMessage(error, "Could not load ranked maps from ScoreSaber."),
       );
     }
-  }
-
-  function extractPlayerId(value: string): string {
-    const text = value.trim();
-    if (/^\d{5,25}$/.test(text)) return text;
-    const match =
-      text.match(/(?:^|\/)u\/(\d{5,25})(?:\/|$|[?#])/i) ??
-      text.match(/(?:^|\D)(\d{5,25})(?:\D|$)/);
-    return match?.[1] ?? "";
-  }
-
-  function showPlayerMatches(query: string, players: Player[]): void {
-    matchedPlayerQuery = query;
-    matchedPlayers = players;
-    playerMatchSelect.replaceChildren();
-    for (const candidate of players) {
-      const option = document.createElement("option");
-      option.value = candidate.id;
-      const rank = candidate.stats?.rank
-        ? `#${candidate.stats.rank}`
-        : "Unranked";
-      option.textContent = `${candidate.name ?? "Unknown"} · ${candidate.country || "--"} · ${rank} · ${candidate.id}`;
-      playerMatchSelect.append(option);
-    }
-    playerMatch.hidden = false;
   }
 
   function uniqueMapCount(): number {
@@ -345,15 +294,21 @@ export function initRankedTool(): void {
   function download(): void {
     if (!entries.length) return;
     const split = splitToggle.checked;
-    const low = stars.low.toFixed(1);
-    const high = stars.high.toFixed(1);
+    const low = fetchedMinimumStars.toFixed(1);
+    const high = fetchedMaximumStars.toFixed(1);
     const mapCount = uniqueMapCount();
+    const filterDescription = fetchedFilterLabel
+      ? ` Hidden: difficulties already played by ${fetchedFilterLabel}.`
+      : "";
     const playlist: Playlist = {
-      playlistTitle: `Ranked Maps ${low}-${high} Stars`,
+      playlistTitle: fetchedFilterLabel
+        ? `Ranked Maps ${low}-${high} Stars (unplayed by ${fetchedFilterLabel})`
+        : `Ranked Maps ${low}-${high} Stars`,
       playlistAuthor: "Cirzzo's Playlist Maker",
-      playlistDescription: split
+      playlistDescription: (split
         ? `${entries.length} ranked difficulties as separate entries across ${mapCount} maps.`
-        : `${entries.length} ranked difficulties grouped across ${mapCount} maps.`,
+        : `${entries.length} ranked difficulties grouped across ${mapCount} maps.`) +
+        filterDescription,
       songs: buildSongs(
         entries.map((e) => ({ map: e.map, difficulty: e.leaderboard })),
         split,
@@ -361,6 +316,9 @@ export function initRankedTool(): void {
       coverImage: "",
       allowDuplicates: split,
     };
-    downloadPlaylist(playlist, `ranked-maps-${low}-${high}-stars.bplist`);
+    const filename = fetchedFilterLabel
+      ? `ranked-maps-${low}-${high}-stars-unplayed-${slugify(fetchedFilterLabel)}.bplist`
+      : `ranked-maps-${low}-${high}-stars.bplist`;
+    downloadPlaylist(playlist, filename);
   }
 }

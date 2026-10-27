@@ -1,5 +1,5 @@
 import { $, errorMessage, pause, setButtonLabel, setTitle } from "./dom";
-import { fetchPlayersByName, fetchScorePage, PAGE_PAUSE_MS } from "./api";
+import { fetchScorePage, PAGE_PAUSE_MS } from "./api";
 import {
   buildSongs,
   downloadPlaylist,
@@ -7,6 +7,7 @@ import {
   type Playlist,
 } from "./playlist";
 import { RangeSlider, STAR_SLIDER } from "./slider";
+import { createPlayerPicker, extractPlayerId } from "./player-picker";
 import { StatusLine, createTrackRow } from "./ui";
 import type {
   DifficultyInfo,
@@ -55,10 +56,12 @@ export function initAccuracyTool(): void {
   let loadedPlayerId = "";
   let activeRequest = 0;
   let refreshTimer = 0;
-  let matchedPlayers: Player[] = [];
-  let matchedPlayerQuery = "";
-  let playerSearchTimer = 0;
-  let playerSearchVersion = 0;
+  const playerPicker = createPlayerPicker({
+    input: playerInput,
+    matchContainer: playerMatch,
+    select: playerMatchSelect,
+    searchStatus: playerSearchStatus,
+  });
 
   // Changing a filter after a profile is loaded re-runs the scan (debounced).
   const scheduleRefresh = (): void => {
@@ -102,52 +105,11 @@ export function initAccuracyTool(): void {
     renderTracks();
   });
 
-  playerInput.addEventListener("input", () => {
-    const version = ++playerSearchVersion;
-    window.clearTimeout(playerSearchTimer);
-    matchedPlayers = [];
-    matchedPlayerQuery = "";
-    playerMatchSelect.replaceChildren();
-    playerMatch.hidden = true;
-    playerSearchStatus.hidden = true;
-    const query = playerInput.value.trim();
-    if (query.length < 3 || extractPlayerId(query)) return;
-    playerSearchStatus.textContent = "Searching profiles...";
-    playerSearchStatus.hidden = false;
-    playerSearchTimer = window.setTimeout(() => {
-      void previewPlayerSearch(query, version);
-    }, 250);
-  });
-
   downloadButton.addEventListener("click", download);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     void handleSubmit();
   });
-
-  async function previewPlayerSearch(query: string, version: number): Promise<void> {
-    try {
-      const matches = await fetchPlayersByName(query);
-      if (version !== playerSearchVersion || query !== playerInput.value.trim()) return;
-      const exactMatches = matches.filter((player) =>
-        [player.name, player.playerNameInGame].some(
-          (name) => name?.trim().toLocaleLowerCase() === query.toLocaleLowerCase(),
-        ),
-      );
-      const choices = exactMatches.length ? exactMatches : matches;
-      if (choices.length) {
-        showPlayerMatches(query, choices);
-        playerSearchStatus.hidden = true;
-      } else {
-        playerSearchStatus.textContent = "No matching profiles found.";
-        playerSearchStatus.hidden = false;
-      }
-    } catch (error) {
-      if (version !== playerSearchVersion) return;
-      playerSearchStatus.textContent = errorMessage(error, "Player search failed.");
-      playerSearchStatus.hidden = false;
-    }
-  }
 
   async function handleSubmit(): Promise<void> {
     const playerQuery = playerInput.value.trim();
@@ -159,11 +121,6 @@ export function initAccuracyTool(): void {
 
     let playerId = extractPlayerId(playerQuery);
     let resolvedPlayer: Player | null = null;
-    if (!playerId && matchedPlayerQuery === playerQuery) {
-      resolvedPlayer =
-        matchedPlayers.find((p) => p.id === playerMatchSelect.value) ?? null;
-      playerId = resolvedPlayer?.id ?? "";
-    }
     if (!playerId && playerQuery.length < 3) {
       status.error("Player names must be at least 3 characters long.");
       playerInput.focus();
@@ -194,38 +151,35 @@ export function initAccuracyTool(): void {
 
     try {
       if (!playerId) {
-        const matches = await fetchPlayersByName(playerQuery);
+        const resolution = await playerPicker.resolve();
         if (requestId !== activeRequest) return;
-        const wanted = playerQuery.toLocaleLowerCase();
-        const exactMatches = matches.filter((player) =>
-          [player.name, player.playerNameInGame].some(
-            (name) => name?.trim().toLocaleLowerCase() === wanted,
-          ),
-        );
-        if (exactMatches.length === 1) {
-          resolvedPlayer = exactMatches[0] ?? null;
-        } else if (matches.length === 1) {
-          resolvedPlayer = matches[0] ?? null;
-        } else if (matches.length === 0) {
-          throw new Error(`No ScoreSaber players found for “${playerQuery}”.`);
-        } else {
-          const choices = exactMatches.length ? exactMatches : matches;
-          showPlayerMatches(playerQuery, choices);
+        if (resolution.kind === "choose") {
           setLoading(false);
           status.show(
             "More than one player matched. Choose a profile, then fetch scores again.",
           );
           setTitle(resultsTitle, "Choose a player");
-          resultsSubtitle.textContent = `${choices.length} matching profiles found.`;
+          resultsSubtitle.textContent = `${resolution.count} matching profiles found.`;
           trackCount.textContent = "0 MAPS";
           return;
         }
-        playerId = resolvedPlayer?.id ?? "";
+        if (resolution.kind === "empty") {
+          status.error("Enter a player name, ScoreSaber ID, or profile URL.");
+          playerInput.focus();
+          setLoading(false);
+          return;
+        }
+        if (resolution.kind === "too-short") {
+          status.error("Player names must be at least 3 characters long.");
+          playerInput.focus();
+          setLoading(false);
+          return;
+        }
+        playerId = resolution.playerId;
+        resolvedPlayer = resolution.player;
       }
 
-      playerMatch.hidden = true;
-      matchedPlayerQuery = "";
-      matchedPlayers = [];
+      playerPicker.reset();
       currentPlayerId = playerId;
       currentPlayer = resolvedPlayer;
       status.show("Connecting to ScoreSaber...");
@@ -345,29 +299,6 @@ export function initAccuracyTool(): void {
       resultsSubtitle.textContent = "Check the player ID and try again.";
       trackCount.textContent = "0 MAPS";
     }
-  }
-
-  function extractPlayerId(value: string): string {
-    const text = value.trim();
-    if (/^\d{5,25}$/.test(text)) return text;
-    const match =
-      text.match(/(?:^|\/)u\/(\d{5,25})(?:\/|$|[?#])/i) ??
-      text.match(/(?:^|\D)(\d{5,25})(?:\D|$)/);
-    return match?.[1] ?? "";
-  }
-
-  function showPlayerMatches(query: string, players: Player[]): void {
-    matchedPlayerQuery = query;
-    matchedPlayers = players;
-    playerMatchSelect.replaceChildren();
-    for (const player of players) {
-      const option = document.createElement("option");
-      option.value = player.id;
-      const rank = player.stats?.rank ? `#${player.stats.rank}` : "Unranked";
-      option.textContent = `${player.name ?? "Unknown"} · ${player.country || "--"} · ${rank} · ${player.id}`;
-      playerMatchSelect.append(option);
-    }
-    playerMatch.hidden = false;
   }
 
   function showPlayer(playerId: string, player: Player | null): void {
